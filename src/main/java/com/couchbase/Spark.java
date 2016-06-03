@@ -1,15 +1,16 @@
 package com.couchbase;
 
-import com.couchbase.spark.sql.DataFrameWriterFunctions;
+import com.couchbase.client.java.query.N1qlQuery;
+import com.couchbase.client.java.query.Select;
+import com.couchbase.client.java.query.Statement;
 import com.couchbase.spark.japi.CouchbaseSparkContext;
-import com.couchbase.spark.rdd.CouchbaseQueryRow;
-import com.couchbase.client.java.document.json.*;
-import com.couchbase.client.java.query.*;
+import com.couchbase.spark.sql.DataFrameWriterFunctions;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
 import scala.collection.immutable.Map;
 
+import static com.couchbase.client.java.query.dsl.Expression.*;
 import static com.couchbase.spark.japi.CouchbaseSparkContext.couchbaseContext;
 
 public class Spark {
@@ -31,7 +32,7 @@ public class Spark {
                 .option("header", "true")
                 .load(csvFilePath);
         // Taking only 0.1% for test
-         df = df.sample(false, 0.01);
+        df = df.sample(false, 0.01);
         // Infer the schema uses the integer type for the id but we need a string
         df = df.withColumn("Id", df.col("Id").cast("string"));
         DataFrameWriterFunctions dataFrameWriterFunctions = new DataFrameWriterFunctions(df.write());
@@ -41,14 +42,11 @@ public class Spark {
     }
 
     public void getPopularNames(String gender, int threshold) {
-        String queryStr = "SELECT Name, Gender, SUM(Count) AS Total FROM `default` WHERE Gender = $1 GROUP BY Name, Gender HAVING SUM(Count) >= $2";
-        JsonArray parameters = JsonArray.create()
-            .add(gender)
-            .add(threshold);
-        ParameterizedN1qlQuery query = ParameterizedN1qlQuery.parameterized(queryStr, parameters);
+        Statement statement = Select.select("Name", "Gender", "SUM(Count) AS Total").from(i("test")).where(x("Gender").eq(s(gender))).groupBy(x("Name,Gender")).having(x("SUM(Count)").gte(threshold));
+        N1qlQuery query = N1qlQuery.simple(statement);
         this.couchbaseSparkContext
-            .couchbaseQuery(query)
-            .foreach(queryResult -> System.out.println(queryResult));
+                .couchbaseQuery(query)
+                .foreach(queryResult -> System.out.println(queryResult));
     }
 
 }

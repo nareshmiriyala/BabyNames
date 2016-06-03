@@ -32,7 +32,7 @@ public class Spark {
                 .option("header", "true")
                 .load(csvFilePath);
         // Taking only 0.1% for test
-        df = df.sample(false, 0.01);
+        df = df.sample(false, 0.10);
         // Infer the schema uses the integer type for the id but we need a string
         df = df.withColumn("Id", df.col("Id").cast("string"));
         DataFrameWriterFunctions dataFrameWriterFunctions = new DataFrameWriterFunctions(df.write());
@@ -41,8 +41,8 @@ public class Spark {
         dataFrameWriterFunctions.couchbase(options);
     }
 
-    public void getPopularNames(String gender, int threshold) {
-        Statement statement = Select.select("Name", "Gender", "SUM(Count) AS Total").from(i("test")).where(x("Gender").eq(s(gender))).groupBy(x("Name,Gender")).having(x("SUM(Count)").gte(threshold));
+    public void getPopularNames(String gender, int threshold,String dbName) {
+        Statement statement = Select.select("Name", "Gender", "SUM(Count) AS Total").from(i(dbName)).where(x("Gender").eq(s(gender))).groupBy(x("Name,Gender")).having(x("SUM(Count)").gte(threshold));
         N1qlQuery query = N1qlQuery.simple(statement);
         this.couchbaseSparkContext
                 .couchbaseQuery(query)
